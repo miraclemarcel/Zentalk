@@ -1,13 +1,13 @@
 import {
   AudioModule,
+  type RecordingOptions,
   RecordingPresets,
   setAudioModeAsync,
   useAudioRecorder,
-  useAudioRecorderState,
 } from 'expo-audio';
 import { BlurView } from 'expo-blur';
 import { ArrowUp, Pause, Play, X } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useSharedValue, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,7 @@ interface Props {
 }
 
 const SAMPLE_MS = 70;
+const RECORDING_OPTIONS: RecordingOptions = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
 /** dBFS → 0..1 with a gentle curve so normal speech fills the range. */
 const normalise = (db: number) => Math.pow(Math.min(1, Math.max(0, (db + 52) / 50)), 1.4);
 
@@ -52,17 +53,17 @@ function RecorderBody({ onClose, onSend }: Omit<Props, 'visible'>) {
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
 
-  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
-  const state = useAudioRecorderState(recorder, SAMPLE_MS);
+  const recorder = useAudioRecorder(RECORDING_OPTIONS);
 
   const level = useSharedValue(0);
   const active = useSharedValue(0);
 
   const [mode, setMode] = useState<'starting' | 'live' | 'demo'>('starting');
   const [paused, setPaused] = useState(false);
-  const [samples, setSamples] = useState<number[]>([]);
-  const [demoMs, setDemoMs] = useState(0);
+  // One state object, updated once per sample tick — the only render driver while recording.
+  const [meter, setMeter] = useState<{ ms: number; samples: number[] }>({ ms: 0, samples: [] });
   const allSamples = useRef<number[]>([]);
+  const elapsed = useRef(0);
 
   // ---- start recording (falls back to a simulated demo if the mic is unavailable)
   useEffect(() => {
@@ -90,36 +91,33 @@ function RecorderBody({ onClose, onSend }: Omit<Props, 'visible'>) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pushSample = useCallback(
-    (v: number) => {
+  // ---- sample loop: polls the real mic (live) or synthesises a speech-like envelope (demo)
+  useEffect(() => {
+    if (mode === 'starting' || paused) return;
+    const resumedAt = Date.now() - elapsed.current;
+    const id = setInterval(() => {
+      let ms: number;
+      let v: number;
+      if (mode === 'live') {
+        const status = recorder.getStatus();
+        ms = status.durationMillis;
+        v = typeof status.metering === 'number' ? normalise(status.metering) : 0;
+      } else {
+        ms = Date.now() - resumedAt;
+        const t = ms / 1000;
+        const syllables = Math.max(0, Math.sin(t * 6.3) * Math.sin(t * 1.7 + 0.6));
+        v = Math.min(1, 0.08 + syllables * 0.8 + Math.random() * 0.18);
+      }
+      elapsed.current = ms;
       level.set(v);
       allSamples.current.push(v);
-      setSamples((s) => (s.length > 80 ? [...s.slice(-60), v] : [...s, v]));
-    },
-    [level],
-  );
-
-  // ---- live metering
-  useEffect(() => {
-    if (mode !== 'live' || paused) return;
-    if (typeof state.metering === 'number') pushSample(normalise(state.metering));
-  }, [mode, paused, state.metering, state.durationMillis, pushSample]);
-
-  // ---- demo: synthesise a speech-like envelope so the UI can be experienced anywhere
-  useEffect(() => {
-    if (mode !== 'demo' || paused) return;
-    const start = Date.now() - demoMs;
-    const id = setInterval(() => {
-      const t = (Date.now() - start) / 1000;
-      setDemoMs(Date.now() - start);
-      const syllables = Math.max(0, Math.sin(t * 6.3) * Math.sin(t * 1.7 + 0.6));
-      pushSample(Math.min(1, 0.08 + syllables * 0.8 + Math.random() * 0.18));
+      setMeter((m) => ({ ms, samples: [...m.samples.slice(-59), v] }));
     }, SAMPLE_MS);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, paused, pushSample]);
+  }, [mode, paused, recorder, level]);
 
-  const durationMs = mode === 'live' ? state.durationMillis : demoMs;
+  const durationMs = meter.ms;
+  const samples = meter.samples;
 
   const togglePause = () => {
     haptics.tap();

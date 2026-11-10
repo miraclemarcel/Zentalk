@@ -7,6 +7,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
+import { isRunningInExpoGo } from 'expo';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -21,7 +22,10 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { themeVars } from '@/theme/palette';
 
 SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ duration: 250, fade: true });
+// Not supported in Expo Go — only customise the fade in dev/production builds.
+if (!isRunningInExpoGo()) {
+  SplashScreen.setOptions({ duration: 250, fade: true });
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

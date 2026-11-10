@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Trash2 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
@@ -12,6 +12,7 @@ import { Suggestions } from '@/components/home/suggestions';
 import { VoiceRecorder } from '@/components/recorder/voice-recorder';
 import { IconButton } from '@/components/ui/icon-button';
 import { Text } from '@/components/ui/text';
+import { useLeave } from '@/hooks/use-leave';
 import { sendText, sendVoice, stopSpeaking } from '@/services/assistant';
 import { useChatStore, type VoiceClip } from '@/stores/chat-store';
 
@@ -39,10 +40,15 @@ export default function Chat() {
 
   useEffect(() => () => stopSpeaking(), []);
 
-  // Conversation can vanish (deleted / cleared) — leave gracefully.
+  // Single exit path: the conversation was deleted/cleared, or never existed
+  // (e.g. an unsaved draft after a reload). Leave once, without assuming history.
+  const leave = useLeave();
+  const left = useRef(false);
   useEffect(() => {
-    if (!conversation && booted.current) router.back();
-  }, [conversation]);
+    if (conversation || left.current) return;
+    left.current = true;
+    leave();
+  }, [conversation, leave]);
 
   const confirmDelete = () =>
     Alert.alert('Delete conversation?', 'This can’t be undone.', [
@@ -50,10 +56,8 @@ export default function Chat() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          router.back();
-          useChatStore.getState().deleteConversation(id);
-        },
+        // Navigation is handled by the exit effect above once the conversation is gone.
+        onPress: () => useChatStore.getState().deleteConversation(id),
       },
     ]);
 
@@ -63,7 +67,12 @@ export default function Chat() {
       <View
         className="flex-row items-center gap-2 border-b border-line px-3 pb-2.5"
         style={{ paddingTop: insets.top + 6 }}>
-        <IconButton icon={ChevronLeft} accessibilityLabel="Back" iconSize={24} onPress={() => router.back()} />
+        <IconButton
+          icon={ChevronLeft}
+          accessibilityLabel="Back"
+          iconSize={24}
+          onPress={leave}
+        />
         <View className="flex-1 items-center">
           <Text weight="semibold" numberOfLines={1} className="text-[16px]">
             {conversation?.title ?? 'New chat'}

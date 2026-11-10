@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
 import { Check, ChevronLeft, type LucideIcon, Trash2, Vibrate, Volume2 } from 'lucide-react-native';
 import { Alert, ScrollView, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +9,7 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useHaptics } from '@/hooks/use-haptics';
+import { useLeave } from '@/hooks/use-leave';
 import { useChatStore } from '@/stores/chat-store';
 import { type ThemeMode, useSettingsStore } from '@/stores/settings-store';
 import { palette } from '@/theme/palette';
@@ -125,6 +125,7 @@ function ToggleRow({
 
 export default function Settings() {
   const insets = useSafeAreaInsets();
+  const leave = useLeave();
   const { colors } = useAppTheme();
   const { haptics, voiceReplies, setHaptics, setVoiceReplies } = useSettingsStore();
   const count = useChatStore((s) => Object.values(s.conversations).filter((c) => c.messages.length).length);
@@ -138,7 +139,12 @@ export default function Settings() {
   return (
     <View className="flex-1 bg-bg">
       <View className="flex-row items-center gap-2 px-3 pb-2" style={{ paddingTop: insets.top + 6 }}>
-        <IconButton icon={ChevronLeft} accessibilityLabel="Back" iconSize={24} onPress={() => router.back()} />
+        <IconButton
+          icon={ChevronLeft}
+          accessibilityLabel="Back"
+          iconSize={24}
+          onPress={leave}
+        />
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
