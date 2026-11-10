@@ -1,26 +1,33 @@
 {
   "expo": {
-    "name": "zentalk-tmp",
-    "slug": "zentalk-tmp",
+    "name": "Zentalk",
+    "slug": "zentalk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "zentalktmp",
+    "scheme": "zentalk",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#09090B",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zentalk.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Zentalk uses your microphone so you can send voice notes to the assistant."
+      }
     },
     "android": {
+      "package": "com.zentalk.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0B0B0F",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": ["android.permission.RECORD_AUDIO"],
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "server",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -28,11 +35,22 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FAFAFA",
+          "image": "./assets/images/splash-icon-light.png",
+          "imageWidth": 112,
+          "dark": {
+            "backgroundColor": "#09090B",
+            "image": "./assets/images/splash-icon.png"
+          }
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Zentalk uses your microphone so you can send voice notes to the assistant."
+        }
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
